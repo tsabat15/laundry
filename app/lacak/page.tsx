@@ -18,7 +18,6 @@ export default function LacakPesanan() {
     setTrackingData(null);
 
     try {
-      // Cari data pesanan berdasarkan Invoice ID (Contoh: INV-1234)
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -26,18 +25,26 @@ export default function LacakPesanan() {
           customers (nama, no_wa),
           order_items (qty, subtotal, services (nama_layanan, satuan))
         `)
-        .ilike('invoice_id', `%${invoiceId}%`) // ilike agar tidak sensitif huruf besar/kecil
+        .ilike('invoice_id', `%${invoiceId}%`) 
         .maybeSingle();
 
-      if (error) throw error;
+      // --- PERBAIKAN ERROR HANDLING DI SINI ---
+      // Kita tangkap error-nya secara halus tanpa "throw error" yang bikin Next.js crash
+      if (error) {
+        console.error("Supabase Error:", error);
+        setErrorMsg("Pesanan tidak ditemukan atau koneksi terputus.");
+        setIsLoading(false);
+        return;
+      }
+
       if (!data) {
-        setErrorMsg("Pesanan tidak ditemukan. Pastikan Nomor Nota sudah benar.");
+        setErrorMsg("Pesanan tidak ditemukan. Pastikan Nomor Nota sudah benar (Contoh: INV-1234).");
       } else {
         setTrackingData(data);
       }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg("Terjadi kesalahan saat mencari data.");
+    } catch (err: any) {
+      console.error("Catch Error:", err);
+      setErrorMsg("Terjadi kesalahan sistem saat mencari data.");
     } finally {
       setIsLoading(false);
     }
