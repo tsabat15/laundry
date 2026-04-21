@@ -105,7 +105,7 @@ export default function SmartLaundryLengkap() {
   };
   const handleLogout = async () => { await supabase.auth.signOut(); setCurrentView('kasir'); };
 
-  // --- LOGIKA KASIR ---
+  // --- LOGIKA KASIR (Auto-Complete, Kalkulasi) ---
   const filteredCustomers = customerName ? customers.filter(c => c.nama.toLowerCase().includes(customerName.toLowerCase())).slice(0, 5) : [];
   const handleSelectSuggestedCustomer = (nama: string, phone: string) => { setCustomerName(nama); setCustomerPhone(phone); setShowSuggestions(false); };
   const activeCustomer = customers.find(c => c.no_wa === customerPhone);
@@ -139,11 +139,70 @@ export default function SmartLaundryLengkap() {
       if (itemErr) throw itemErr;
 
       await fetchData();
-      if (shouldPrint) alert(`Struk ${invoiceId} siap dicetak! (Pop-up print aktif)`);
+
+      // --- LOGIKA CETAK STRUK ASLI ---
+      if (shouldPrint) {
+        const printWindow = window.open('', '_blank', 'width=400,height=600');
+        if (printWindow) {
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>Struk ${invoiceId}</title>
+                <style>
+                  body { font-family: monospace; max-width: 300px; margin: 0 auto; padding: 20px; color: #000; }
+                  h2 { text-align: center; margin-bottom: 5px; font-size: 20px; }
+                  p { margin: 5px 0; font-size: 12px; }
+                  .divider { border-bottom: 1px dashed #000; margin: 10px 0; }
+                  .flex { display: flex; justify-content: space-between; font-size: 12px; }
+                  .text-center { text-align: center; }
+                  .bold { font-weight: bold; }
+                  .mt-4 { margin-top: 15px; }
+                </style>
+              </head>
+              <body>
+                <h2>LaundryFlow</h2>
+                <p class="text-center">Sistem Kasir Pintar</p>
+                <div class="divider"></div>
+                <p>Nota   : ${invoiceId}</p>
+                <p>Nama   : ${customerName}</p>
+                <p>Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
+                <div class="divider"></div>
+                <div class="flex bold"><span>Layanan</span><span>Subtotal</span></div>
+                <div class="flex">
+                  <span>${selectedService.nama_layanan} (${qty} ${selectedService.satuan})</span>
+                  <span>Rp ${totalKotor.toLocaleString('id-ID')}</span>
+                </div>
+                ${diskonRp > 0 ? `<div class="flex"><span>Diskon Promo</span><span>-Rp ${diskonRp.toLocaleString('id-ID')}</span></div>` : ''}
+                <div class="divider"></div>
+                <div class="flex bold"><span>TOTAL TAGIHAN</span><span>Rp ${totalHarga.toLocaleString('id-ID')}</span></div>
+                <p class="text-center mt-4 bold">STATUS: ${isPaid ? 'LUNAS' : 'BELUM BAYAR'}</p>
+                <div class="divider"></div>
+                <p class="text-center">Cek status cucian Anda di:</p>
+                <p class="text-center bold">laundryflow.vercel.app/lacak</p>
+                <p class="text-center mt-4">Terima kasih!</p>
+                <script>
+                  window.onload = function() { 
+                    window.print(); 
+                    setTimeout(function() { window.close(); }, 500);
+                  }
+                </script>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+        }
+      }
+
+      // Reset form setelah simpan
       setCustomerName(""); setCustomerPhone(""); setQty(""); setDiscount(""); setIsPaid(true);
-    } catch (error) { console.error(error); alert("Gagal menyimpan pesanan."); } finally { setIsSaving(false); }
+    } catch (error) { 
+      console.error(error); alert("Gagal menyimpan pesanan."); 
+    } finally { 
+      setIsSaving(false); 
+    }
   };
 
+  // --- FITUR AUTO-WHATSAPP NOTIFICATION ---
   const updateStatus = async (id: string, newStatus: string) => { 
     await supabase.from('orders').update({ laundry_status: newStatus }).eq('id', id); 
     
@@ -309,7 +368,7 @@ export default function SmartLaundryLengkap() {
         <div className="p-4 border-t border-stone-100"><button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-red-600 hover:bg-red-50 text-xs"><span className="material-icons-outlined text-[16px]">logout</span> Keluar Akun</button></div>
       </aside>
 
-      {/* MAIN CONTENT (BARU: w-full & pb-28 untuk spasi menu HP) */}
+      {/* MAIN CONTENT */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-28 md:pb-8 scroll-smooth w-full">
         
         {/* HEADER MOBILE (Hanya tampil di HP) */}
